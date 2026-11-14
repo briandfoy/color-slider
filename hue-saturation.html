@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hue and Saturation</title>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    max-width: 600px;
+    margin: 2rem auto;
+    padding: 0 16px;
+    background: #fafafa;
+    color: #222;
+  }
+  #wheels, #triad-wheels {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 1.5rem;
+  }
+  #triad-wheels {
+    margin-top: 1.5rem;
+  }
+  #wheel, #swatch, #triad-wheel, #triad-swatch {
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+  }
+  #wheel, #triad-wheel, #triad-swatch {
+    position: relative;
+  }
+  #hex {
+    font: inherit;
+    width: 8ch;
+    padding: 2px 4px;
+  }
+  .tlabel {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    font: 13px ui-monospace, monospace;
+    color: #fff;
+    text-shadow: 0 0 3px #000;
+  }
+  .marker {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -10px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 3px #000;
+  }
+  #swatch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: hidden;
+  }
+  .quad {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 13px ui-monospace, monospace;
+    color: #fff;
+    text-shadow: 0 0 3px #000;
+  }
+  label {
+    display: block;
+    margin: 1rem 0 0.25rem;
+  }
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 14px;
+    border-radius: 7px;
+    border: 1px solid #ccc;
+  }
+  input[type=range]::-moz-range-track {
+    background: transparent;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #333;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #333;
+  }
+  #code {
+    font-family: ui-monospace, monospace;
+    margin-top: 1.5rem;
+  }
+</style>
+</head>
+<body>
+  <div id="wheels">
+    <div id="wheel">
+      <div class="marker"></div>
+      <div class="marker"></div>
+      <div class="marker"></div>
+      <div class="marker"></div>
+    </div>
+    <div id="swatch">
+      <div class="quad"></div>
+      <div class="quad"></div>
+      <div class="quad"></div>
+      <div class="quad"></div>
+    </div>
+  </div>
+
+  <label for="hue">Hue: <span id="hue-val">200</span>°</label>
+  <input type="range" id="hue" min="0" max="360" value="200">
+
+  <label for="sat">Saturation: <span id="sat-val">70</span>%</label>
+  <input type="range" id="sat" min="0" max="100" value="70">
+
+  <label for="lit">Lightness: <span id="lit-val">50</span>%</label>
+  <input type="range" id="lit" min="0" max="100" value="50">
+
+  <div id="code"><span id="hsl-text"></span> · <input id="hex" type="text" maxlength="7" spellcheck="false" aria-label="Hex color"></div>
+
+  <div id="triad-wheels">
+    <div id="triad-wheel">
+      <div class="marker"></div>
+      <div class="marker"></div>
+      <div class="marker"></div>
+    </div>
+    <div id="triad-swatch">
+      <span class="tlabel"></span>
+      <span class="tlabel"></span>
+      <span class="tlabel"></span>
+    </div>
+  </div>
+
+<script>
+  const hue = document.getElementById('hue');
+  const sat = document.getElementById('sat');
+  const lit = document.getElementById('lit');
+  const hexInput = document.getElementById('hex');
+
+  function hexToHsl(text) {
+    const m = text.trim().replace(/^#/, '');
+    if (!/^[0-9a-f]{6}$/i.test(m)) return null;
+    const [r, g, b] = [0, 2, 4].map(i => parseInt(m.substr(i, 2), 16) / 255);
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    const l = (max + min) / 2;
+    let h = 0, s = 0;
+    if (d) {
+      s = d / (1 - Math.abs(2 * l - 1));
+      h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      h = (h * 60 + 360) % 360;
+    }
+    return [Math.round(h), Math.round(s * 100), Math.round(l * 100)];
+  }
+  const swatch = document.getElementById('swatch');
+  const wheel = document.getElementById('wheel');
+  const markers = wheel.querySelectorAll('.marker');
+  const offsets = [0, 90, 270, 180];
+  const tWheel = document.getElementById('triad-wheel');
+  const tSwatch = document.getElementById('triad-swatch');
+  const tMarkers = tWheel.querySelectorAll('.marker');
+  const tLabels = tSwatch.querySelectorAll('.tlabel');
+
+  function update() {
+    const color = `hsl(${hue.value}, ${sat.value}%, ${lit.value}%)`;
+    swatch.querySelectorAll('.quad').forEach((q, i) => {
+      const h = (+hue.value + offsets[i]) % 360;
+      const c = `hsl(${h}, ${sat.value}%, ${lit.value}%)`;
+      q.style.background = c;
+      q.textContent = h + '°';
+      markers[i].style.background = c;
+      markers[i].style.transform = `rotate(${h}deg) translateY(${-1.2 * sat.value}px)`;
+    });
+    const stops = [];
+    for (let h = 0; h <= 360; h += 30) stops.push(`hsl(${h}, 100%, ${lit.value}%)`);
+    const g = `0 0% ${lit.value}%`;
+    wheel.style.background = `radial-gradient(circle closest-side, hsl(${g}), hsl(${g} / 0)), conic-gradient(${stops.join(', ')})`;
+    tWheel.style.background = wheel.style.background;
+    const tColors = [];
+    tMarkers.forEach((m, i) => {
+      const h = (+hue.value + i * 120) % 360;
+      const c = `hsl(${h}, ${sat.value}%, ${lit.value}%)`;
+      tColors.push(c);
+      m.style.background = c;
+      m.style.transform = `rotate(${h}deg) translateY(${-1.2 * sat.value}px)`;
+      const a = i * 120 + 60;
+      tLabels[i].textContent = h + '°';
+      tLabels[i].style.transform = `translate(-50%, -50%) rotate(${a}deg) translateY(-60px) rotate(${-a}deg)`;
+    });
+    tSwatch.style.background = `conic-gradient(${tColors[0]} 0deg 120deg, ${tColors[1]} 120deg 240deg, ${tColors[2]} 240deg 360deg)`;
+    document.getElementById('hue-val').textContent = hue.value;
+    document.getElementById('sat-val').textContent = sat.value;
+    document.getElementById('lit-val').textContent = lit.value;
+    const hStops = [];
+    for (let h = 0; h <= 360; h += 30) hStops.push(`hsl(${h}, ${sat.value}%, ${lit.value}%)`);
+    hue.style.background = `linear-gradient(to right, ${hStops.join(', ')})`;
+    sat.style.background = `linear-gradient(to right, hsl(${hue.value}, 0%, ${lit.value}%), hsl(${hue.value}, 100%, ${lit.value}%))`;
+    lit.style.background = `linear-gradient(to right, hsl(${hue.value}, ${sat.value}%, 0%), hsl(${hue.value}, ${sat.value}%, 50%), hsl(${hue.value}, ${sat.value}%, 100%))`;
+    document.getElementById('hsl-text').textContent = color;
+    const rgb = getComputedStyle(swatch.querySelector('.quad')).backgroundColor;
+    const hex = '#' + rgb.match(/\d+/g).map(n => (+n).toString(16).padStart(2, '0')).join('');
+    if (document.activeElement !== hexInput) hexInput.value = hex;
+  }
+
+  hue.addEventListener('input', update);
+  sat.addEventListener('input', update);
+  lit.addEventListener('input', update);
+  hexInput.addEventListener('input', () => {
+    const hsl = hexToHsl(hexInput.value);
+    if (!hsl) return;
+    [hue.value, sat.value, lit.value] = hsl;
+    update();
+  });
+  hexInput.addEventListener('blur', update);
+  update();
+</script>
+</body>
+</html>
